@@ -1,7 +1,0 @@
-Flask==2.2.5
-Flask-CORS==3.0.10
-numpy==1.24.3
-opencv-python-headless==4.7.0.72
-Pillow==9.5.0
-ultralytics==8.0.157
-gunicorn==20.1.0
