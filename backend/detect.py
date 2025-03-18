@@ -1,47 +1,39 @@
-import cv2
 import os
+import cv2
+import urllib.request
+
+# Model file paths
+MODEL_DIR = "models"
+MODEL_CFG = os.path.join(MODEL_DIR, "yolov3.cfg")
+MODEL_WEIGHTS = os.path.join(MODEL_DIR, "yolov3.weights")
+MODEL_NAMES = os.path.join(MODEL_DIR, "coco.names")
+
+# URLs for downloading models
+CFG_URL = "https://github.com/pjreddie/darknet/blob/master/cfg/yolov3.cfg?raw=true"
+WEIGHTS_URL = "https://pjreddie.com/media/files/yolov3.weights"
+NAMES_URL = "https://github.com/pjreddie/darknet/blob/master/data/coco.names?raw=true"
+
+# Function to download the model if missing
+def download_model():
+    if not os.path.exists(MODEL_DIR):
+        os.makedirs(MODEL_DIR)
+
+    if not os.path.exists(MODEL_CFG):
+        print("Downloading YOLOv3 config...")
+        urllib.request.urlretrieve(CFG_URL, MODEL_CFG)
+
+    if not os.path.exists(MODEL_WEIGHTS):
+        print("Downloading YOLOv3 weights (this may take time)...")
+        urllib.request.urlretrieve(WEIGHTS_URL, MODEL_WEIGHTS)
+
+    if not os.path.exists(MODEL_NAMES):
+        print("Downloading COCO class names...")
+        urllib.request.urlretrieve(NAMES_URL, MODEL_NAMES)
+
+# Download model before loading
+download_model()
 
 # Load YOLO model
-MODEL_CFG = "models/yolov3.cfg"
-MODEL_WEIGHTS = "models/yolov3.weights"
-CLASS_NAMES = "models/coco.names"
-
 net = cv2.dnn.readNetFromDarknet(MODEL_CFG, MODEL_WEIGHTS)
-net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
-net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
-
-with open(CLASS_NAMES, "r") as f:
-    classes = [line.strip() for line in f.readlines()]
-
-def detect_objects(image_path, filename):
-    img = cv2.imread(image_path)
-    height, width, _ = img.shape
-
-    # Convert image to YOLO format
-    blob = cv2.dnn.blobFromImage(img, 1/255, (416, 416), swapRB=True, crop=False)
-    net.setInput(blob)
-
-    # Get YOLO output layers
-    layer_names = net.getLayerNames()
-    output_layers = [layer_names[i - 1] for i in net.getUnconnectedOutLayers()]
-
-    # Run YOLO detection
-    detections = net.forward(output_layers)
-
-    for output in detections:
-        for detection in output:
-            scores = detection[5:]
-            class_id = scores.argmax()
-            confidence = scores[class_id]
-            if confidence > 0.5:
-                center_x, center_y, w, h = (detection[0:4] * [width, height, width, height]).astype("int")
-                x = int(center_x - w / 2)
-                y = int(center_y - h / 2)
-
-                # Draw bounding box
-                cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                cv2.putText(img, f"{classes[class_id]}: {confidence:.2f}", (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-
-    processed_path = f"static/processed/{filename}"
-    cv2.imwrite(processed_path, img)
-    return processed_path
+layer_names = net.getLayerNames()
+output_layers = [layer_names[i - 1] for i in net.getUnconnectedOutLayers()]
