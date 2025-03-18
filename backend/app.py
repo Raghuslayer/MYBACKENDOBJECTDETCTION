@@ -1,38 +1,31 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_file
+from detect import detect_objects  # Ensure detect.py has this function
 import os
-from detect import detect_objects
-from flask_cors import CORS
-from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-CORS(app)  # Allows cross-origin requests
 
-UPLOAD_FOLDER = "static/uploads"
-PROCESSED_FOLDER = "static/processed"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(PROCESSED_FOLDER, exist_ok=True)
+# Ensure the uploads directory exists
+UPLOAD_FOLDER = "uploads"
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
 
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-app.config["PROCESSED_FOLDER"] = PROCESSED_FOLDER
-
-@app.route("/detect", methods=["POST"])
-def upload_file():
+@app.route("/upload", methods=["POST"])
+def upload():
     if "image" not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
+        return jsonify({"error": "No image uploaded"}), 400
 
-    file = request.files["image"]
-    filename = secure_filename(file.filename)
-    filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-    file.save(filepath)
+    image = request.files["image"]
+    image_path = os.path.join(UPLOAD_FOLDER, image.filename)
+    image.save(image_path)
 
-    # Process Image with YOLO
-    processed_path = detect_objects(filepath, filename)
+    # Perform object detection
+    try:
+        output_image_path = detect_objects(image_path)
+    except Exception as e:
+        return jsonify({"error": f"Detection failed: {str(e)}"}), 500
 
-    return jsonify({"processed_image_url": f"/processed/{filename}"}), 200
-
-@app.route("/processed/<filename>")
-def get_processed_image(filename):
-    return send_from_directory(app.config["PROCESSED_FOLDER"], filename)
+    # Return the processed image
+    return send_file(output_image_path, mimetype="image/png")
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=8080, debug=True)
